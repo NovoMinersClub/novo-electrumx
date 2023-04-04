@@ -417,7 +417,7 @@ class BlockProcessor:
                     continue
                 cache_value = spend_utxo(txin.prev_hash, txin.prev_idx)
                 undo_info_append(cache_value)
-                append_hashX(cache_value[:-13])
+                if cache_value: append_hashX(cache_value[:-13])
 
             # Add the new UTXOs
             for idx, txout in enumerate(tx.outputs):
@@ -428,8 +428,12 @@ class BlockProcessor:
                 # Get the hashX
                 hashX = script_hashX(txout.pk_script)
                 append_hashX(hashX)
+                
+                value = txout.value
+                if txout.value < 0:
+                    value = 999_999_999_999_999_999
                 put_utxo(tx_hash + to_le_uint32(idx),
-                         hashX + tx_numb + to_le_uint64(txout.value))
+                         hashX + tx_numb + to_le_uint64(value))
 
             append_hashXs(hashXs)
             update_touched(hashXs)
@@ -603,8 +607,8 @@ class BlockProcessor:
                 self.db_deletes.append(udb_key)
                 return hashX + tx_num_packed + utxo_value_packed
 
-        raise ChainError('UTXO {} / {:,d} not found in "h" table'
-                         .format(hash_to_hex_str(tx_hash), tx_idx))
+        #raise ChainError('UTXO {} / {:,d} not found in "h" table'
+                         #.format(hash_to_hex_str(tx_hash), tx_idx))
 
     async def _process_blocks(self):
         '''Loop forever processing blocks as they arrive.'''
