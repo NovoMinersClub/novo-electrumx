@@ -214,11 +214,13 @@ class Deserializer(object):
         return [read() for _ in range(self._read_varint())]
 
     def _read_inputs(self):
+        #TODO: implement proper 0.3 support
         read_input = self._read_input
-        inputs = list(filter(None, 
-            [read_input() for i in range(self._read_varint())]
-        ))
-        return inputs
+        inputs = []
+        for i in range(self._read_varint()):
+            try: inputs.append(read_input())
+            except Exception: pass
+        return list(filter(None, inputs))
 
     def _read_input(self):
         cursor = self.cursor
@@ -234,11 +236,13 @@ class Deserializer(object):
             return None
 
     def _read_outputs(self):
+        #TODO: implement proper 0.3 support
         read_output = self._read_output
-        outputs = list(filter(None, 
-            [read_output() for i in range(self._read_varint())]
-        ))
-        return outputs
+        outputs = []
+        for i in range(self._read_varint()):
+            try: outputs.append(read_output())
+            except Exception: pass
+        return list(filter(None, outputs))
 
     def _read_output(self):
         cursor = self.cursor
