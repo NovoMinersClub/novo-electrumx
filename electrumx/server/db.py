@@ -457,7 +457,8 @@ class DB(object):
     def flush_undo_infos(self, batch_put, undo_infos):
         '''undo_infos is a list of (undo_info, height) pairs.'''
         for undo_info, height in undo_infos:
-            batch_put(self.undo_key(height), b''.join(undo_info))
+            filtered = list(filter(None, undo_info))
+            batch_put(self.undo_key(height), b''.join(filtered))
 
     def raw_block_prefix(self):
         return 'meta/block'

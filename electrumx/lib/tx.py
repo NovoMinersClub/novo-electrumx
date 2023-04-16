@@ -104,10 +104,17 @@ class Deserializer(object):
 
     def read_tx(self):
         '''Return a deserialized transaction.'''
+        #TODO: implement proper 0.3 support
+        version = self._read_le_int32()
+        inputs = self._read_inputs()
+        outputs = self._read_outputs()
+        if (self.binary_length - self.cursor) < 4:
+            self.cursor = self.binary_length - 4
+
         return Tx(
-            self._read_le_int32(),  # version
-            self._read_inputs(),    # inputs
-            self._read_outputs(),   # outputs
+            version,  # version
+            inputs,    # inputs
+            outputs,   # outputs
             self._read_le_uint32()  # locktime
         )
 
@@ -208,25 +215,41 @@ class Deserializer(object):
 
     def _read_inputs(self):
         read_input = self._read_input
-        return [read_input() for i in range(self._read_varint())]
+        inputs = list(filter(None, 
+            [read_input() for i in range(self._read_varint())]
+        ))
+        return inputs
 
     def _read_input(self):
-        return TxInput(
-            self._read_nbytes(32),   # prev_hash
-            self._read_le_uint32(),  # prev_idx
-            self._read_varbytes(),   # script
-            self._read_le_uint32()   # sequence
-        )
+        cursor = self.cursor
+        try:
+            return TxInput(
+                self._read_nbytes(32),   # prev_hash
+                self._read_le_uint32(),  # prev_idx
+                self._read_varbytes(),   # script
+                self._read_le_uint32()   # sequence
+            )
+        except AssertionError: #TODO: implement proper 0.3 support
+            self.cursor = cursor
+            return None
 
     def _read_outputs(self):
         read_output = self._read_output
-        return [read_output() for i in range(self._read_varint())]
+        outputs = list(filter(None, 
+            [read_output() for i in range(self._read_varint())]
+        ))
+        return outputs
 
     def _read_output(self):
-        return TxOutput(
-            self._read_le_int64(),  # value
-            self._read_varbytes(),  # pk_script
-        )
+        cursor = self.cursor
+        try:
+            return TxOutput(
+                self._read_le_int64(),  # value
+                self._read_varbytes(),  # pk_script
+            )
+        except Exception: #TODO: implement proper 0.3 support
+            self.cursor = cursor
+            return None
 
     def _read_byte(self):
         cursor = self.cursor
