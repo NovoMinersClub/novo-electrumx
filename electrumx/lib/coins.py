@@ -44,7 +44,6 @@ import electrumx.server.block_processor as block_proc
 from electrumx.server import daemon
 from electrumx.server.session import ElectrumX
 
-
 Block = namedtuple("Block", "raw header transactions")
 
 
@@ -52,13 +51,11 @@ class CoinError(Exception):
     '''Exception raised for coin-related errors.'''
 
 
-class Coin:
-    '''Base class of coin hierarchy.'''
-
-    SHORTNAME = "BSV"
+class Novo:
+    NAME = "Novo"
+    SHORTNAME = "NVO"
     NET = "mainnet"
     REORG_LIMIT = 200
-    # Not sure if these are coin-specific
     RPC_URL_REGEX = re.compile('.+@(\\[[0-9a-fA-F:]+\\]|[^:]+)(:[0-9]+)?')
     VALUE_PER_COIN = 100000000
     SESSIONCLS = ElectrumX
@@ -66,106 +63,34 @@ class Coin:
     DESERIALIZER = lib_tx.Deserializer
     DAEMON = daemon.Daemon
     BLOCK_PROCESSOR = block_proc.BlockProcessor
-    P2PKH_VERBYTE = bytes.fromhex("00")
-    P2SH_VERBYTES = [bytes.fromhex("05")]
+    P2PKH_VERBYTE = bytes.fromhex("19")
+    P2SH_VERBYTES = [bytes.fromhex("08")]
     RPC_PORT = 8665
-    GENESIS_HASH = ('0000000000b3de1ef5bd7c20708dbafc'
-                    '3df0441877fa4a59cda22b4c2d4f39ce')
+    GENESIS_HASH = '0000000000b3de1ef5bd7c20708dbafc3df0441877fa4a59cda22b4c2d4f39ce'  
     GENESIS_ACTIVATION = 100_000_000
-    # Peer discovery
     PEER_DEFAULT_PORTS = {'t': '50001', 's': '50002'}
-    PEERS = []
+    PEERS = [
+        "electron-novo.com:50012",
+        "electrumx.novochain.ovh:50012",
+        "electrumx1.novochain.ovh:50012",
+        "electrumx2.novochain.ovh:50012
+        "electrumx3.novochain.ovh:50012",
+        "electrumx4.novochain.ovh:50012",
+        "electrumx5.novochain.ovh:50012",
+    ]
 
-    @classmethod
-    def lookup_coin_class(cls, name, net):
-        '''Return a coin class given name and network.
-
-        Raise an exception if unrecognised.'''
-        req_attrs = ['TX_COUNT', 'TX_COUNT_HEIGHT', 'TX_PER_BLOCK']
-        for coin in util.subclasses(Coin):
-            if (coin.NAME.lower() == name.lower() and
-                    coin.NET.lower() == net.lower()):
-                coin_req_attrs = req_attrs.copy()
-                missing = [attr for attr in coin_req_attrs
-                           if not hasattr(coin, attr)]
-                if missing:
-                    raise CoinError('coin {} missing {} attributes'
-                                    .format(name, missing))
-                return coin
-        raise CoinError('unknown coin {} and network {} combination'
-                        .format(name, net))
-
-    @classmethod
-    def sanitize_url(cls, url):
-        # Remove surrounding ws and trailing /s
-        url = url.strip().rstrip('/')
-        match = cls.RPC_URL_REGEX.match(url)
-        if not match:
-            raise CoinError('invalid daemon URL: "{}"'.format(url))
-        if match.groups()[1] is None:
-            url += ':{:d}'.format(cls.RPC_PORT)
-        if not url.startswith('http://') and not url.startswith('https://'):
-            url = 'http://' + url
-        return url + '/'
+    TX_COUNT = 1000
+    TX_COUNT_HEIGHT = 2000
+    TX_PER_BLOCK = 10
+    CHAIN_SIZE = 1_623_944_264_227
+    CHAIN_SIZE_HEIGHT = 709_728
+    AVG_BLOCK_SIZE = 150_000_000
 
     @classmethod
     def max_fetch_blocks(cls, height):
         if height < 130000:
             return 1000
         return 100
-
-    @classmethod
-    def genesis_block(cls, block):
-        '''Check the Genesis block is the right one for this coin.
-
-        Return the block less its unspendable coinbase.
-        '''
-        header = block[:80]
-        header_hex_hash = hash_to_hex_str(cls.header_hash(header))
-        if header_hex_hash != cls.GENESIS_HASH:
-            raise CoinError('genesis block has hash {} expected {}'
-                            .format(header_hex_hash, cls.GENESIS_HASH))
-
-        return header + bytes(1)
-
-    @classmethod
-    def hashX_from_script(cls, script):
-        '''Returns a hashX from a script.'''
-        return sha256(script).digest()[:HASHX_LEN]
-
-    @classmethod
-    def address_to_hashX(cls, address):
-        '''Return a hashX given a coin address.'''
-        return cls.hashX_from_script(cls.pay_to_address_script(address))
-
-    @classmethod
-    def hash160_to_P2PKH_script(cls, hash160):
-        return ScriptPubKey.P2PKH_script(hash160)
-
-    @classmethod
-    def hash160_to_P2PKH_hashX(cls, hash160):
-        return cls.hashX_from_script(cls.hash160_to_P2PKH_script(hash160))
-
-    @classmethod
-    def pay_to_address_script(cls, address):
-        '''Return a pubkey script that pays to a pubkey hash.
-
-        Pass the address (either P2PKH or P2SH) in base58 form.
-        '''
-        raw = Base58.decode_check(address)
-
-        # Require version byte(s) plus hash160.
-        verbyte = -1
-        verlen = len(raw) - 20
-        if verlen > 0:
-            verbyte, hash160 = raw[:verlen], raw[verlen:]
-
-        if verbyte == cls.P2PKH_VERBYTE:
-            return cls.hash160_to_P2PKH_script(hash160)
-        if verbyte in cls.P2SH_VERBYTES:
-            return ScriptPubKey.P2SH_script(hash160)
-
-        raise CoinError('invalid address: {}'.format(address))
 
     @classmethod
     def header_hash(cls, header):
@@ -183,93 +108,3 @@ class Coin:
         header = raw_block[:80]
         txs = cls.DESERIALIZER(raw_block, start=len(header)).read_tx_block()
         return Block(raw_block, header, txs)
-
-    @classmethod
-    def decimal_value(cls, value):
-        '''Return the number of standard coin units as a Decimal given a
-        quantity of smallest units.
-
-        For example 1 BSV is returned for 100 million satoshis.
-        '''
-        return Decimal(value) / cls.VALUE_PER_COIN
-
-
-class Novo(Coin):
-    NAME = "Novo"
-    TX_COUNT = 1000
-    TX_COUNT_HEIGHT = 2000
-    TX_PER_BLOCK = 10
-    CHAIN_SIZE = 1_623_944_264_227
-    CHAIN_SIZE_HEIGHT = 709_728
-    AVG_BLOCK_SIZE = 150_000_000
-    PEERS = [
-    ]
-    GENESIS_ACTIVATION = 0
-
-class BitcoinSV(Coin):
-    NAME = "BitcoinSV"
-    TX_COUNT = 267318795
-    TX_COUNT_HEIGHT = 557037
-    TX_PER_BLOCK = 400
-    PEERS = [
-        'electrumx.bitcoinsv.io s',
-        'satoshi.vision.cash s',
-        'sv.usebsv.com s t',
-        'sv.satoshi.io s t',
-    ]
-    GENESIS_ACTIVATION = 620_538
-
-
-class BitcoinTestnetMixin:
-    SHORTNAME = "XTN"
-    NET = "testnet"
-    P2PKH_VERBYTE = bytes.fromhex("6f")
-    P2SH_VERBYTES = [bytes.fromhex("c4")]
-    WIF_BYTE = bytes.fromhex("ef")
-    GENESIS_HASH = ('000000000933ea01ad0ee984209779ba'
-                    'aec3ced90fa3f408719526f8d77f4943')
-    REORG_LIMIT = 8000
-    TX_COUNT = 12242438
-    TX_COUNT_HEIGHT = 1035428
-    TX_PER_BLOCK = 21
-    RPC_PORT = 18332
-    PEER_DEFAULT_PORTS = {'t': '51001', 's': '51002'}
-
-
-class BitcoinSVTestnet(BitcoinTestnetMixin, Coin):
-    '''Bitcoin Testnet for Bitcoin SV daemons.'''
-    NAME = "BitcoinSV"
-    PEERS = [
-        'electrontest.cascharia.com t51001 s51002',
-    ]
-    GENESIS_ACTIVATION = 1_344_302
-
-
-class BitcoinSVScalingTestnet(BitcoinSVTestnet):
-    NET = "scalingtest"
-    PEERS = [
-        'stn-server.electrumsv.io t51001 s51002',
-    ]
-    TX_COUNT = 2015
-    TX_COUNT_HEIGHT = 5711
-    TX_PER_BLOCK = 5000
-    GENESIS_ACTIVATION = 14_896
-
-    @classmethod
-    def max_fetch_blocks(cls, height):
-        if height <= 10:
-            return 100
-        return 3
-
-
-class BitcoinSVRegtest(BitcoinSVTestnet):
-    NET = "regtest"
-    GENESIS_HASH = ('0f9188f13cb7b2c71f2a335e3a4fc328'
-                    'bf5beb436012afca590b1a11466e2206')
-    PEERS = []
-    TX_COUNT = 1
-    TX_COUNT_HEIGHT = 1
-    GENESIS_ACTIVATION = 10_000
-
-
-Bitcoin = BitcoinSV
