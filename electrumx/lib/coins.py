@@ -53,7 +53,7 @@ class CoinError(Exception):
 
 class Novo:
     NAME = "Novo"
-    SHORTNAME = "NVO"
+    SHORTNAME = "NOVO"
     NET = "mainnet"
     REORG_LIMIT = 200
     RPC_URL_REGEX = re.compile('.+@(\\[[0-9a-fA-F:]+\\]|[^:]+)(:[0-9]+)?')
@@ -70,14 +70,14 @@ class Novo:
     GENESIS_ACTIVATION = 100_000_000
     PEER_DEFAULT_PORTS = {'t': '50001', 's': '50002'}
     PEERS = [
-        "electron-novo.com:50012",
-        "electrumx.novochain.ovh:50012",
-        "electrumx1.novochain.ovh:50012",
-        "electrumx2.novochain.ovh:50012
-        "electrumx3.novochain.ovh:50012",
-        "electrumx4.novochain.ovh:50012",
-        "electrumx5.novochain.ovh:50012",
-    ]
+    "electron-novo.com:50012",
+    "electrumx.novochain.ovh:50012",
+    "electrumx1.novochain.ovh:50012",
+    "electrumx2.novochain.ovh:50012",
+    "electrumx3.novochain.ovh:50012",
+    "electrumx4.novochain.ovh:50012",
+    "electrumx5.novochain.ovh:50012",
+]
 
     TX_COUNT = 1000
     TX_COUNT_HEIGHT = 2000
